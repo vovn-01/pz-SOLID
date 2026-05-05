@@ -1,71 +1,28 @@
-# Practical lesson pz-SOLID  
-# Практична реалізація SOLID принципів  
+# Практична реалізація SOLID
 
-> У цьому занятті студенти отримують практичні навички застосування SOLID принципів під час рефакторингу існуючого коду.  
-> Мета — створити гнучку, масштабовану та чисту архітектуру шляхом застосування SRP, OCP, LSP, ISP та DIP.
+## Аналіз вихідного коду (Анти-патерни)
 
----
+У файлі `src/original/badReportProcessor.ts` було ідентифіковано наступні порушення:
 
-## What need to do:
-* Провести аналіз вихідного «анти-SOLID» коду  
-* Визначити порушення кожного SOLID принципу  
-* Виконати рефакторинг згідно з:
-  * SRP — Single Responsibility Principle  
-  * OCP — Open/Closed Principle  
-  * LSP — Liskov Substitution Principle  
-  * ISP — Interface Segregation Principle  
-  * DIP — Dependency Inversion Principle  
-* Створити відповідні інтерфейси й абстракції  
-* Усунути зайві або циклічні залежності  
-* Додати мінімальний набір unit-тестів після рефакторингу  
+1. **SRP (Single Responsibility Principle):** Клас `BadReportProcessor` був "божественним об'єктом" (God Object). Він самостійно займався валідацією, визначав правила форматування, зберігав дані на диск і відправляв імейли.
+2. **OCP (Open/Closed Principle):** Вибір формату (`pdf` або `html`) відбувався через `if-else`. Щоб додати підтримку Excel, довелося б лізти в ядро класу і змінювати існуючий код, що створює ризик зламати систему.
+3. **LSP (Liskov Substitution Principle):** Базовий клас вимагав можливості друку на папері (`printOnPaper()`). Клас `WebOnlyReportProcessor` наслідував його, але замість виконання дії викидав `Error`. Це порушує принцип: ми не можемо використовувати нащадка скрізь, де очікується базовий клас.
+4. **ISP (Interface Segregation Principle):** Інтерфейс `IReportTasks` змушував реалізовувати методи `generatePDF`, `generateHTML` та `printOnPaper` одночасно. Звітам, які існують лише онлайн, метод друку не потрібен.
+5. **DIP (Dependency Inversion Principle):** Клас напряму інстанціював `LocalDiskStorage` та `SmtpEmailService` (через ключове слово `new`). Це зробило неможливим тестування процесора в ізоляції та ускладнило перехід на інші сервіси (наприклад, AWS S3 замість локального диска).
 
----
+## Опис рефакторингу
 
-## Acceptance criteria
-* Реалізація на мові Typescript 
-* Студент розуміє кожен SOLID принцип та пояснює його застосування  
-* Увесь вихідний код проаналізовано  
-* Усі порушення SOLID знайдено та описано  
-* Після рефакторингу:
-  * Кожен клас має одну відповідальність (SRP)  
-  * Код розширюється через нові класи, а не редагування існуючих (OCP)  
-  * Класи-нащадки повністю заміщають базові (LSP)  
-  * Інтерфейси невеликі й специфічні (ISP)  
-  * Залежності реалізовані через абстракції (DIP)  
-* Код структурований, логічний та зрозумілий  
-* Усі тести проходять успішно  
-* Звіт оформлений у Markdown (README.md)
+Після застосування принципів SOLID (директорії `src/refactored` та `src/interfaces`):
 
-## Directory Structure
-```
-├── pz-SOLID
-│   ├── src
-│   │   ├── original          # код із навмисними порушеннями SOLID
-│   │   ├── refactored        # код після рефакторингу
-│   │   ├── interfaces        # абстракції та інтерфейси
-│   ├── tests
-│   │   ├── refactored.spec.js
-│   ├── .editorconfig
-│   ├── .gitignore
-│   ├── jest.config.js
-│   ├── package.json
-│   ├── package-lock.json
-│   ├── README.md
-└──
-```
+1. **SRP:** Логіку збереження, форматування та сповіщень винесено в окремі класи-сервіси. `ReportManager` тепер є лише оркестратором (викликає потрібні методи по черзі).
+2. **OCP:** Створено абстракцію `IReportFormatter`. Форматування винесено у класи `PdfFormatter` та `HtmlFormatter`. Нові формати додаються створенням нового класу, система відкрита для розширення.
+3. **LSP:** Замість методів, які викидають винятки, створено абстрактний клас `BaseReport` із поліморфним методом `distribute()`. Класи `PhysicalReport` та `DigitalReport` реалізовують його так, як потрібно саме їм.
+4. **ISP:** Створено вузькоспеціалізовані інтерфейси: `IStorageService`, `INotificationService`, `IReportFormatter`. Жоден клас не змушений реалізовувати методи, які він не використовує.
+5. **DIP:** Усі залежності `ReportManager` передаються через конструктор у вигляді інтерфейсів. Це знизило зв'язність коду (low coupling) і дозволило легко написати юніт-тести з використанням моків.
 
-## Useful links
+## Запуск тестів
 
-[SOLID Principles Explained](https://www.baeldung.com/solid-principles)
-
-[SOLID: The First 5 Principles of Object-Oriented Design](https://www.freecodecamp.org/news/solid-principles-explained-in-plain-english/)
-
-[JavaScript SOLID: Реалізація принципів](https://khalilstemmler.com/articles/solid-principles/)
-
-[Clean Code Concepts Adapted for JavaScript](https://github.com/ryanmcdermott/clean-code-javascript)
-
-[Dependency Injection in JavaScript](https://javascript.plainenglish.io/dependency-injection-in-javascript-1b82a8101c1a)
-
-
-
-
+Для запуску тестів:
+```bash
+npm install
+npx jest
